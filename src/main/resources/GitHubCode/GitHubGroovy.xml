@@ -1,0 +1,766 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xwikidoc>
+<web>GitHubCode</web>
+<name>GitHubGroovy</name>
+<language></language>
+<defaultLanguage>en</defaultLanguage>
+<translation>0</translation>
+<parent></parent>
+<creator>XWiki.Admin</creator>
+<author>XWiki.Admin</author>
+<customClass></customClass>
+<contentAuthor>XWiki.Admin</contentAuthor>
+<creationDate>1262300400000</creationDate>
+<date>1262300400000</date>
+<contentUpdateDate>1262300400000</contentUpdateDate>
+<version>1.1</version>
+<title></title>
+<template></template>
+<defaultTemplate></defaultTemplate>
+<validationScript></validationScript>
+<comment></comment>
+<minorEdit>false</minorEdit>
+<syntaxId>xwiki/2.0</syntaxId>
+<hidden>false</hidden>
+<content>
+import org.eclipse.egit.github.core.*;
+import org.eclipse.egit.github.core.client.*;
+import org.eclipse.egit.github.core.service.*;
+import org.apache.commons.codec.binary.Base64;
+import java.util.Collection;
+import java.util.Iterator;
+import org.apache.commons.lang.StringUtils;
+import com.xpn.xwiki.doc.XWikiDocument;
+import org.apache.velocity.tools.generic.EscapeTool;
+
+public class GitHubGroovy {
+    def xwiki;
+    def context;
+    def githubclient;
+    def prjname = "";
+    def prjdesc = "";
+    def prjversion = "";
+    def repuser = "";
+    def repname = "";
+    def reppath = "";
+    def repsrcpath = "src/main/resources";
+    def defaultspace = "";
+    def configdoc;
+    def savedlist = "";
+    def repository = null;
+    def username = "";
+    def password = "";
+    def defaultDate = "";
+    def defaultUser = "";
+    def sdebug = "";
+    def status = new HashMap();
+
+    public setXWiki(xwiki, context) {
+      this.xwiki = xwiki;
+      this.context = context;
+    }
+
+    public hasProgrammingRights() {
+      return xwiki.hasProgrammingRights();
+    }
+
+    public setGitHubConfig(page) {
+       this.configdoc = xwiki.getDocument(page)
+       this.prjname = configdoc.getValue("name");
+       this.prjdesc = configdoc.getValue("description");
+       this.prjversion = configdoc.getValue("version");
+       this.repuser = configdoc.getValue("repository_user");
+       this.repname = configdoc.getValue("repository_name");
+       this.reppath = configdoc.getValue("repository_path");
+       this.defaultspace = configdoc.getValue("defaultspace");
+       this.savedlist = configdoc.getValue("savedlist");
+       this.defaultDate = configdoc.getValue("defaultdate");
+       this.defaultUser = configdoc.getValue("defaultuser");
+       this.status = getStatus(configdoc.getValue("status"));
+
+       def authobj = configdoc.getObject("GitHubCode.GitHubAuthClass", "contextuser", context.user)
+       if (authobj) {
+         this.username = authobj.getProperty("username").value
+         this.password = authobj.getProperty("password").property.value
+         debug("Found user ${username}")
+       }
+
+      //Basic authentication
+      githubclient = new GitHubClient();
+      githubclient.setCredentials(username, password);
+       
+      def rservice = new RepositoryService(githubclient);
+      try {
+       repository = rservice.getRepository(repuser, repname)
+      } catch (RequestException e) {
+       return "GitHub Connection Failed: " + e.getMessage();
+      }
+ 
+      return "";
+    }
+
+    public getStatus(status) {
+       def smap = new HashMap();
+       for (sline in StringUtils.split(status, "\r\n")) {
+          def items = sline.split(";");
+          smap.put(items[0], [ "xwikiversion" : (items.length&gt;1) ? items[1] : "", "xwikihash" : (items.length&gt;2) ? items[2] : "", "githubversion" : (items.length&gt;3) ? items[3] : "" ])
+       }
+       return smap;
+    }
+
+    public getPageStatus(filePath) {
+      return status.get(filePath);
+    }
+
+    public saveStatus() {
+       def sstatus = "";
+       for (key in status.keySet()) {
+         def stat = status.get(key);
+         sstatus += "${key};${stat.xwikiversion};${stat.xwikihash};${stat.githubversion}\n";
+       }
+       // only save if changed
+       if (status!=configdoc.getValue("status")) {
+        configdoc.set("status", sstatus);
+        configdoc.save();
+       }
+    }
+
+    public debug(message) {
+       sdebug += message + "\n";
+       def cdate = new Date();
+       System.out.println("GITHUBAPP ${cdate}: ${message}");
+    }
+
+    public getDebug() {
+       return this.sdebug;
+    }
+   
+    public getDefaultSpace() {
+        return this.defaultspace;
+    }
+
+    public getSavedList() {
+        return (this.savedlist==null) ? "" : this.savedlist;
+    }
+
+    public getFilePath(pagedoc) {
+       // get page
+        def filePath = pagedoc.getSpace() + "/" + pagedoc.getName();
+        def language = pagedoc.getLanguage();
+        if (language!=null&amp;&amp;language!="")
+          filePath += "." + language;
+        filePath += ".xml"
+        return filePath;
+    }
+
+    public getStatusPath(pagedoc) {
+       // get page
+        def filePath = pagedoc.getSpace() + "/" + pagedoc.getName();
+        def language = pagedoc.getLanguage();
+        if (language!=null&amp;&amp;language!="")
+          filePath += "." + language;
+        return filePath;
+    }
+
+    public String getFileContentAsString(sha) {
+        def dservice = new DataService(githubclient);
+        def blob = dservice.getBlob(repository, sha);
+        def githubcontent = new String(Base64.decodeBase64(blob.content.getBytes()));
+        return githubcontent;
+   }
+     
+    public String getFileContentAsString(String space, String page, String language) {
+        // get page
+        def filePath = space + "/" + page;
+        if (language!=null&amp;&amp;language!="")
+          filePath += "." + language;
+        filePath += ".xml"
+        return "";
+   } 
+
+   public getPOMFile() {
+      def escapetool = new EscapeTool();
+      def samplePOM = xwiki.getDocument("GitHubCode.SamplePOM").getContent();
+      samplePOM = samplePOM.replaceAll("PRJNAME", prjname.toLowerCase().replaceAll(" ", "-"))
+      samplePOM = samplePOM.replaceAll("PRJPNAME", prjname)
+      samplePOM = samplePOM.replaceAll("PRJDESC", escapetool.xml(prjdesc))
+      samplePOM = samplePOM.replaceAll("PRJVERSION", prjversion)
+      return samplePOM;
+   }
+
+   public getXML(pagedoc) {
+        def clonedDoc = pagedoc.document.clone();
+
+        // remove Tag object
+        if (clonedDoc.getObject("XWiki.TagClass")) {
+          clonedDoc.removeObject(clonedDoc.getObject("XWiki.TagClass"));
+        }
+
+        if (defaultUser &amp;&amp; defaultUser!="") {
+          clonedDoc.setCreator(defaultUser);
+          clonedDoc.setContentAuthor(defaultUser);
+          clonedDoc.setAuthor(defaultUser);
+        } else {
+          clonedDoc.setCreator(clonedDoc.getAuthor());
+          clonedDoc.setContentAuthor(clonedDoc.getAuthor());
+        }
+     
+        if (defaultDate &amp;&amp; defaultDate!="") {
+          clonedDoc.setCreationDate(defaultDate);
+          clonedDoc.setContentUpdateDate(defaultDate);
+          clonedDoc.setDate(defaultDate);
+          clonedDoc.setVersion("1.1");
+        } else {
+          clonedDoc.setContentUpdateDate(clonedDoc.getDate())
+          clonedDoc.setCreationDate(clonedDoc.getDate())
+          clonedDoc.setVersion("1.1");
+        }  
+
+        clonedDoc.setComment("");
+        clonedDoc.setMinorEdit(false);
+        def c = clonedDoc.toXML(true, false, true, false, context.getContext())
+        return c.trim().replaceAll("[\r]","");
+    }
+
+
+
+    public commitFiles(pagelist, message, pom) {
+        def srcPath = getSourcePath();
+        def newSpaces = new ArrayList();
+        def newPages = new ArrayList();
+
+        def currentPageData = new HashMap();
+        def pagesBySpace = new HashMap();
+
+        def pagename2 = "";
+
+        for (pagename in pagelist) {
+           // separate the language particle at the end of the page name from the page fullname. The pagename is of form &lt;docfullname&gt;.&lt;doclanguage&gt;
+           def languageSeparator = pagename.lastIndexOf('.');
+           if (languageSeparator &lt; 0) {
+             def pagefullname = pagename;  
+           }
+           def pagefullname = pagename.substring(0, languageSeparator);
+           def lang = pagename.substring(languageSeparator + 1);
+           def pagedoc = xwiki.getDocument(pagefullname);
+           // make sure we get the right translations
+           if (lang!=null &amp;&amp; lang!="") {
+             pagedoc = pagedoc.getTranslatedDocument(lang);
+           }
+           def space = pagedoc.getSpace();
+           def page = pagedoc.getName();
+           def language = pagedoc.getLanguage();     
+           
+           // get page
+           def filePath = space + "/" + page;
+           if (language!=null&amp;&amp;language!="")
+                filePath += "." + language;
+           filePath += ".xml"
+
+           def pageList = pagesBySpace.get(space);
+           if (pageList==null) {
+              pageList = new ArrayList();
+              pagesBySpace.put(space, pageList);
+           }
+           pageList.add(pagedoc);
+        }
+
+        def committedPages = new ArrayList();      
+        def commitInfo = null;
+
+        def dservice = new DataService(githubclient);
+        def ref = null;
+        try {
+         ref = dservice.getReference(repository, "refs/heads/master");
+        } catch (Exception e) {
+         // ref does not exist we will create it at the end
+        }
+        ArrayList&lt;TreeEntry&gt; treeEntries = new ArrayList&lt;TreeEntry&gt;();
+
+        try {
+         for (space in pagesBySpace.keySet()) {
+            // loop on each page
+            for (pagedoc in pagesBySpace.get(space)) {  
+              pagename2 = pagedoc.getFullName();
+              def page = pagedoc.getName();
+              def language = pagedoc.getLanguage();
+
+              // get page path
+              def filePath = space + "/" + page;
+              if (language!=null&amp;&amp;language!="")
+                  filePath += "." + language;
+              filePath += ".xml"
+
+              def newXML = getXML(pagedoc);
+              def newData = newXML.getBytes();
+
+              Blob blob = new Blob();
+              blob.setContent(newXML);
+              blob.setEncoding("utf-8");
+              debug("Repository: " + repository);
+              def blobSha = dservice.createBlob(repository, blob);
+
+              debug("Create blob: " + blobSha);
+
+              TreeEntry blobTreeEntry = new TreeEntry();
+              blobTreeEntry.setPath(srcPath + filePath);
+              blobTreeEntry.setType("blob");
+              blobTreeEntry.setMode("100644");
+              blobTreeEntry.setSha(blobSha);
+              treeEntries.add(blobTreeEntry);
+
+              if (newPages.contains(filePath)) {
+                // adding the page
+              } else {
+                def oldData = currentPageData.get(filePath);
+                // updating status to check for changes
+                committedPages.add(getStatusPath(pagedoc));
+                def pageStatus = status.get(getStatusPath(pagedoc));
+                if (pageStatus==null)
+                 pageStatus = [ "xwikiversion" : "", "xwikihash" : "", "githubversion" : ""];
+                status.put(getStatusPath(pagedoc), pageStatus);
+                pageStatus.xwikiversion = "${pagedoc.getVersion()}";
+                pageStatus.xwikihash = "${newXML.hashCode()}";
+              }
+            }
+         }
+        } catch (Throwable e) {
+            e.printStackTrace();
+            debug("error preparing commit on page ${pagename2}: " + e.getMessage());
+            return null;
+        } finally {          
+        }
+
+        // Adding pom in commit
+        if (pom=="1") {
+            def pomFile = getPOMFile();
+            Blob blob = new Blob();
+            blob.setContent(pomFile);
+            blob.setEncoding("utf-8");
+            debug("Repository: " + repository);
+            def blobSha = dservice.createBlob(repository, blob);
+            debug("Create blob: " + blobSha);
+            TreeEntry blobTreeEntry = new TreeEntry();
+            blobTreeEntry.setPath(getBasePath() + "pom.xml");
+            blobTreeEntry.setType("blob");
+            blobTreeEntry.setMode("100644");
+            blobTreeEntry.setSha(blobSha);
+            treeEntries.add(blobTreeEntry);
+            debug("Added pom.xml to commit");
+        }
+
+        // now real commit
+        def sha = (ref==null) ? null : ref.getObject().getSha()
+        Tree blobTree;
+        if (sha==null) {
+          blobTree = dservice.createTree(repository, treeEntries);      
+        } else {
+          Tree currentTree = dservice.getCommit(repository, sha).getTree();
+          blobTree = dservice.createTree(repository, treeEntries, currentTree.getSha());      
+        }
+        debug("Create tree: " + blobTree);
+ 
+        Commit commit = new Commit();
+        commit.setMessage(message);
+        commit.setTree(blobTree);
+        if (sha!=null)
+         commit.setParents(Collections.singletonList(new Commit().setSha(sha)));
+
+        def newCommit = dservice.createCommit(repository, commit);
+        debug("Created commit: " + newCommit);
+
+        TypedResource object = new TypedResource();
+        object.setType("commit").setSha(newCommit.getSha());
+        if (ref==null) {
+          ref = new Reference();
+          ref.setRef("refs/heads/master");
+          ref.setObject(object);
+          dservice.createReference(repository, ref);
+        } else {
+          ref.setObject(object);
+          dservice.editReference(repository, ref, false);
+        }
+        // we need to save the status
+        saveStatus();
+        return "https://github.com/${repuser}/${repname}/commit/${newCommit.sha}";
+    }
+
+    public getChangedPages(String spaces) {
+        return getChangedPages(spaces, "");
+    }
+
+    protected checkPage(page, pagedoc, changedMap, samePages, githubEntries) {
+           def wikicontent = getXML(pagedoc);
+
+
+           def wikihash = (wikicontent==null) ? "" : "${wikicontent.hashCode()}";
+           
+           def filePath = getFilePath(pagedoc);
+           def entry = githubEntries.get(filePath);
+           debug("Check ${filePath} ${wikihash}");
+
+           if (entry==null || !wikihash.equals(entry.githubhash)) {
+            def pageStatus = getPageStatus(getStatusPath(pagedoc));
+            if (pageStatus==null) {
+               pageStatus = [ "xwikiversion" : pagedoc.getVersion(), "xwikihash" : "", "githubversion" : "", "githubsha" : (entry==null) ? "" : entry.githubsha ];
+               status.put(getStatusPath(pagedoc), pageStatus);
+            }
+            pageStatus.filePath = filePath;
+            pageStatus.page = page;
+            pageStatus.fullname = pagedoc.fullName;
+            pageStatus.language = pagedoc.language
+            pageStatus.status = "";
+            pageStatus.githubsha = (entry==null) ? "" : entry.githubsha;
+
+            // debug("Checking page ${page} version ${pagedoc.getVersion()} pageStatus ${pageStatus}")
+
+            if (entry==null &amp;&amp; !pagedoc.isNew()) {
+                pageStatus.status = "A";
+            } else if (pageStatus.xwikihash=="") {
+               def githubsha = (entry==null) ? "" : entry.githubsha;
+               if (githubsha=="")
+                pageStatus.status = "A";
+               else
+                pageStatus.status = "?";
+            } else if (pagedoc.getVersion().equals(pageStatus.xwikiversion)) {
+               // version has not changed in the wikia
+               def whash = "${wikicontent.hashCode()}";
+               // if the recorded hash is the same then we have a modified version in GitHub
+               // otherwise it's a bad state so it's a conflict
+               if (whash == pageStatus.xwikihash)
+                pageStatus.status = "U";
+               else
+                pageStatus.status = "C";
+            } else {
+               def githubsha = (entry==null) ? "" : entry.githubsha;
+               if (githubsha=="")
+                pageStatus.status = "A";
+               else if(pageStatus.githubsha==githubsha) 
+                pageStatus.status = "M";
+               else
+                pageStatus.status = "C";
+            }
+            changedMap.put(page, pageStatus)
+           } else {
+             samePages.add(filePath);
+             def pageStatus = getPageStatus(getStatusPath(pagedoc));
+             if (pageStatus==null) {
+                pageStatus = [ "xwikiversion" : "", "xwikihash" : "", "githubversion" : "", , "githubsha" : "" ];
+                status.put(getStatusPath(pagedoc), pageStatus);
+             }   
+             pageStatus.xwikiversion = pagedoc.getVersion();
+             pageStatus.xwikihash = wikicontent.hashCode();
+             if (entry!=null) {
+             	pageStatus.githubversion = entry.githubversion;
+                pageStatus.githubsha = entry.githubsha;
+             }
+           }
+    }
+
+    public getChangedPages(String spaces, String savedlist) {
+        def changedMap = new TreeMap();
+        def githubEntries = getEntries();
+        def spaceList = null;
+        def samePages = new ArrayList();
+        def list;
+
+        if (!savedlist || savedlist=="") {
+         spaceList = Arrays.asList(StringUtils.split(spaces," ,"));
+         def sspaces = StringUtils.join(spaceList, "','");
+         def sql = "select distinct doc.fullName from XWikiDocument as doc where doc.space in ('${sspaces}')";
+         debug("Searching for ${sql}");
+         list = xwiki.search(sql)
+        } else {
+         list = StringUtils.split(xwiki.getDocument(savedlist).getValue("list"), "|");
+        }
+
+        for (page in list) {
+           def pagedoc = xwiki.getDocument(page);
+           checkPage(page, pagedoc, changedMap, samePages, githubEntries);
+           def transList = pagedoc.getTranslationList();
+           for (trans in transList) {
+               def tpagedoc = pagedoc.getTranslatedDocument(trans);
+               checkPage(page + "." + tpagedoc.language, tpagedoc, changedMap, samePages, githubEntries);
+           }
+        }
+ 
+        if (spaceList!=null) {
+         for (filePath in githubEntries.keySet()) {
+             def entry = githubEntries.get(filePath);
+             def i1 = filePath.indexOf("/");
+             def i2 = filePath.indexOf(".xml");
+             def spaceName = (i1==-1) ? filePath : filePath.substring(0, i1);
+             def page = (i2==-1) ? filePath : filePath.substring(i1+1, i2);
+             def language = "";
+             def pageName = page;
+             if (page.contains(".")) {
+               def i3 = page.indexOf(".");
+               language = page.substring(i3+1);
+               pageName = page.substring(0, i3);
+             }
+             if (spaceList.contains(spaceName)&amp;&amp;!samePages.contains(filePath)&amp;&amp;!changedMap.keySet().contains(spaceName + "." + page)) {
+               changedMap.put(spaceName + "." + pageName, [ "fullname" : "${spaceName}.${pageName}", "language" : language, "status" : "N", "xwikiversion" : "", "githubsha" : entry.githubsha ])
+             }
+         }
+        }
+        // saveStatus if changed
+        saveStatus();
+        return changedMap;
+    }
+
+    public updatePages(pageList) {
+        def changedMap = new TreeMap();
+        def githubEntries = getEntries();
+
+        for (pageobj in pageList) {
+           def page = pageobj.page;
+           def sha = pageobj.sha;
+
+           debug("Ready to update: ${page} ${sha}");
+
+           // separate the language particle at the end of the page name from the page fullname. The pagename is of form &lt;docfullname&gt;.&lt;doclanguage&gt;
+           def languageSeparator = page.lastIndexOf('.');
+           if (languageSeparator &lt; 0) {
+             def pagefullname = page;  
+           }
+           def pagefullname = page.substring(0, languageSeparator);
+           def lang = page.substring(languageSeparator + 1);
+        
+           def pagedoc = xwiki.getDocument(pagefullname);
+           if (lang!=null &amp;&amp; lang!="") {
+             pagedoc = pagedoc.getTranslatedDocument(lang);
+           }
+           def wikicontent = getXML(pagedoc);
+
+           def filePath = getFilePath(pagedoc);
+           def entry = githubEntries.get(filePath);
+           def githubversion = (entry==null) ? "" : entry.githubversion;
+           def githubcontent = (entry==null) ? "" : entry.githubcontent;
+
+           debug("Ready to update: ${filePath}");
+
+           if (!wikicontent.equals(githubcontent) &amp;&amp; githubcontent!=null &amp;&amp; githubcontent!="") {
+              def pageStatus = getPageStatus(getStatusPath(pagedoc));
+              if (pageStatus==null) {
+               pageStatus = [ "xwikiversion" : pagedoc.getVersion(), "xwikihash" : "", "githubversion" : "" ];
+              }
+              pageStatus.filePath = filePath;
+              pageStatus.page = pagefullname;
+              pageStatus.status = "";
+
+              // updating XWiki document from GitHub
+              changedMap.put(pagefullname, pageStatus);
+              def archive = pagedoc.document.getDocumentArchive(context.getContext());
+              def version = pagedoc.document.getRCSVersion();
+
+              def newdoc = new XWikiDocument();
+              newdoc.fromXML(githubcontent);
+             
+              // check attachments that do not exist in updated pages and delete them to recycle bin
+              for (xa in pagedoc.getAttachmentList()) {
+                    if (!newdoc.getAttachment(xa.getFilename())) {
+                       pagedoc.document.deleteAttachment(xa.attachment, true, context.getContext());
+                    }
+              }
+
+              // Make sure they are not marked dirty
+              for (xa in newdoc.getAttachmentList()) {
+                    xa.setMetaDataDirty(false);
+                    xa.getAttachment_content().setContentDirty(false);
+              }
+
+              // we need to make sure previous history is kept
+              newdoc.setDocumentArchive(archive);
+
+              // we need to keep the creator if there was already a document
+              if (pagedoc.getCreator()!=null)
+               newdoc.setCreator(pagedoc.getCreator());
+
+              // set user and author to current user
+              newdoc.setContentAuthor(context.getUser());
+              newdoc.setAuthor(context.getUser());
+
+              // we need to make sure no version is added
+              if (pagedoc.isNew()) {
+                newdoc.setMetaDataDirty(true);
+                newdoc.setContentDirty(true);
+                newdoc.setRCSVersion(null);
+              } else {
+                newdoc.setMetaDataDirty(true);
+                newdoc.setContentDirty(true);
+              }
+
+              // saving document
+              xwiki.getXWiki().saveDocument(newdoc, "Updated from GITHUB", context.getContext());
+
+              // saving attachments
+              newdoc.saveAllAttachments(false, true, context.getContext());
+
+              // we need to force the saving the document archive.
+              if (newdoc.getDocumentArchive() != null) {
+                  xwiki.getXWiki().getVersioningStore().saveXWikiDocArchive(newdoc.getDocumentArchive(context.getContext()), true, context.getContext());
+              }
+ 
+              // reading the information to set the status
+              def newpagedoc = xwiki.getDocument(pagedoc.getFullName());
+              def newwikicontent = getXML(pagedoc);
+              pageStatus.xwikiversion = pagedoc.getVersion();
+              pageStatus.xwikihash = "${newwikicontent.hashCode()}";  
+              pageStatus.githubversion = githubversion;    
+            }
+        } 
+        // saveStatus if changed
+        saveStatus();
+        return changedMap;
+    }
+
+    public exportPages(docname, pageList) {
+        def export = xwiki.package
+        export.setWithVersions(true)
+        export.setWithVersions(false)
+        export.setName(docname)
+        for (page in pageList) {
+            export.add(page, 0);
+        }
+        export.export();
+    }
+
+    public getModifiedFiles(rev) {
+        return (getModifiedFiles("", rev, "10"));
+    }
+
+    public getModifiedFiles2(date, hour) {
+        return (getModifiedFiles("", date, hour));
+    }
+    
+    public getModifiedFiles2(dir, date, hour) {
+    }
+
+    public getModifiedFiles(dir, rev, max) {
+    }
+
+    public getRevisions(dir) {
+    }
+    
+    public listFiles(dir, recursive) {
+    }
+
+    public getCommitStatus(prefix, sep, updatedonly) {
+        def str = "";
+        str += "${prefix}page${sep}language${sep}version${sep}isnew${sep}hash${sep}githubpath${sep}githubversion${sep}githubhash${sep}isdiff\n"
+
+        while (spaceIterator.hasNext()) {
+              def space = entry.getName().toString();
+              // Collection pageEntries = repository.getDir(space, -1, null, (Collection) null);
+              Iterator pageIterator = null;
+              while (pageIterator.hasNext()) {
+                 def pageEntry = pageIterator.next();
+                 def fileName = pageEntry.getName().toString();
+                 def i1 = fileName.indexOf(".xml");
+                 def pageName = (i1==-1) ? fileName : fileName.substring(0, i1);
+                 pageName = space + "." + pageName;
+                 def pagedoc = xwiki.getDocument(pageName);
+                 def pagexml = getXML(pagedoc);
+
+                 def baos = new ByteArrayOutputStream();
+                 // debug("reading file: ${space}/${fileName}")
+                 // repository.getFile(space + "/" + fileName, -1, fileProperties, baos);
+                 def githubcontent = new String(baos.toByteArray())
+
+                 def version = (pagedoc==null) ? "" : pagedoc.getVersion();
+                 def hash = (pagexml==null) ? "" : pagexml.hashCode();
+                 def githubversion = pageEntry.getRevision().toString();
+                 def githubhash = (githubcontent==null) ? "" : githubcontent.hashCode();
+
+                 def isdiff = !pagexml.equals(githubcontent)
+                 if (!updatedonly || !isdiff)
+                  str += "${prefix}${pageName}${sep}${pagedoc.getLanguage()}${sep}${version}${sep}${pagedoc.isNew()}${sep}${hash}${sep}${space}/${fileName}${sep}${githubversion}${sep}${githubhash}${sep}${isdiff}\n"
+            }
+        }
+        return str;
+    }
+
+    public getBasePath() {
+        def basepath = reppath;
+        if (basepath.startsWith("/"))
+         basepath = srcpath.substring(1);
+        if (basepath=="")
+         return "";
+        else if (basepath.endsWith("/"))
+         return basepath;
+        else
+         return basepath + "/";
+    }
+
+    public getSourcePath() {
+        def srcpath = getBasePath();
+
+        if (repsrcpath==""||repsrcpath=="/"||repsrcpath==".")
+         return srcpath;
+        else if (repsrcpath.startsWith("/"))
+         srcpath = srcpath + repsrcpath.substring(0);
+        else
+         srcpath = srcpath + repsrcpath;
+
+        if (srcpath=="")
+         return "";
+        else if (srcpath.endsWith("/"))
+         return srcpath
+        else
+         return srcpath + "/";
+    }
+
+    public getEntries() {
+        def entries = new HashMap();
+
+        def dservice = new DataService(githubclient);
+        def sha = "";
+        try {
+         sha = dservice.getReference(repository, "refs/heads/master").getObject().getSha()
+        } catch (Exception e) {
+         debug("Could not find refs/heads/master");
+         return entries;
+        }
+        for (treeEntry in dservice.getTree(repository, sha, true).tree) {
+          def entryPath = treeEntry.getPath();
+          def srcPath = getSourcePath();
+          debug("Checking path: ${entryPath} against ${srcPath}");
+          if (entryPath!=null &amp;&amp; entryPath.startsWith(srcPath)) {
+           def filePath = treeEntry.path.substring(srcPath.length());
+           debug("Got filePath: ${filePath}");
+           if (filePath.contains("/")) {
+            def blob = dservice.getBlob(repository, treeEntry.sha);
+            def githubcontent = new String(Base64.decodeBase64(blob.content.getBytes())).replaceAll("[\r]","").trim();
+            def githubhash = (githubcontent==null) ? "" : githubcontent.hashCode();
+            def githubversion = 0;
+            entries.put(filePath, [ "githubversion" : githubversion, "githubsha" : treeEntry.sha, "githubhash" : "${githubhash}", "githubcontent" : githubcontent ]);
+            debug("Adding: ${filePath}");
+           }
+          }
+        }
+        return entries;
+    }
+
+
+    public showXMLDiff(pagedoc, sha) {
+        def githubxml = (sha=="") ? "" : getFileContentAsString(sha);
+        def xml = getXML(pagedoc);
+        if (pagedoc.isNew() &amp;&amp; githubxml == null)
+         return "Document does not exist";
+        
+        if (pagedoc.isNew())
+         return "Document does not exist in the wiki"
+ 
+        if (githubxml==null)
+         return "Document does not exist in GitHub"
+   
+        // remove attachment content from xml
+        githubxml = githubxml.replaceAll("(?s)&lt;attachment&gt;(.*?)&lt;content&gt;(.*?)&lt;/content&gt;(.*?)&lt;/attachment&gt;", "&lt;attachment&gt;\$1&lt;content&gt;&lt;/content&gt;\$3&lt;/attachment&gt;")
+        xml = xml.replaceAll("(?s)&lt;attachment&gt;(.*?)&lt;content&gt;(.*?)&lt;/content&gt;(.*?)&lt;/attachment&gt;",
+                      "&lt;attachment&gt;\$1&lt;content&gt;&lt;/content&gt;\$3&lt;/attachment&gt;")
+        return xwiki.diff.getDifferencesAsHTML(githubxml, xml, false);
+    }
+
+}
+
+</content></xwikidoc>
