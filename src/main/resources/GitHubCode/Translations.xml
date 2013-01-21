@@ -22,6 +22,41 @@
 <minorEdit>false</minorEdit>
 <syntaxId>xwiki/2.0</syntaxId>
 <hidden>false</hidden>
+<object>
+<class>
+<name>XWiki.TranslationDocumentClass</name>
+<customClass></customClass>
+<customMapping></customMapping>
+<defaultViewSheet></defaultViewSheet>
+<defaultEditSheet></defaultEditSheet>
+<defaultWeb></defaultWeb>
+<nameField></nameField>
+<validationScript></validationScript>
+<scope>
+<cache>0</cache>
+<disabled>0</disabled>
+<displayType>select</displayType>
+<multiSelect>0</multiSelect>
+<name>scope</name>
+<number>1</number>
+<prettyName>Scope</prettyName>
+<relationalStorage>0</relationalStorage>
+<separator> </separator>
+<separators> ,|</separators>
+<size>1</size>
+<unmodifiable>0</unmodifiable>
+<values>GLOBAL|WIKI|USER|ON_DEMAND</values>
+<classType>com.xpn.xwiki.objects.classes.StaticListClass</classType>
+</scope>
+</class>
+<name>GitHubCode.Translations</name>
+<number>0</number>
+<className>XWiki.TranslationDocumentClass</className>
+<guid>ff030ad3-cfec-473d-8cd9-f926c8b556ab</guid>
+<property>
+<scope>WIKI</scope>
+</property>
+</object>
 <content>github.title=GitHub Commit Application
 github.description=Welcome to the GitHub Commit App. You can configure GitHub repositories to connect to your wiki and commit your wiki content in these repositories.
 github.currentconfigs.title=Current GitHub Configs
