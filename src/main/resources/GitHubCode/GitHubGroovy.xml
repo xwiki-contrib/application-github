@@ -459,7 +459,7 @@ public class GitHubGroovy {
 
     public getChangedPages(String spaces, String savedlist) {
         def changedMap = new TreeMap();
-        def githubEntries = getEntries();
+        def githubEntries = getEntries(spaces);
         def spaceList = null;
         def samePages = new ArrayList();
         def list;
@@ -467,7 +467,7 @@ public class GitHubGroovy {
         if (!savedlist || savedlist=="") {
          spaceList = Arrays.asList(StringUtils.split(spaces," ,"));
          def sspaces = StringUtils.join(spaceList, "','");
-         def sql = "select distinct doc.fullName from XWikiDocument as doc where doc.space in ('${sspaces}')";
+         def sql = "select distinct doc.fullName from XWikiDocument as doc where doc.space in ('${sspaces}') or doc.fullName in ('${sspaces}')";
          debug("Searching for ${sql}");
          list = xwiki.search(sql)
         } else {
@@ -477,7 +477,13 @@ public class GitHubGroovy {
         for (page in list) {
            def pagedoc = xwiki.getDocument(page);
            checkPage(page, pagedoc, changedMap, samePages, githubEntries);
-           def transList = pagedoc.getTranslationList();
+           def transList = ""
+           try {
+            transList = pagedoc.getTranslationList();
+           } catch (Exception e) {
+            debug("Exception when trying to get translation list of page ${pagedoc.fullName}");
+            e.printStackTrace();
+           }
            for (trans in transList) {
                def tpagedoc = pagedoc.getTranslatedDocument(trans);
                checkPage(page + "." + tpagedoc.language, tpagedoc, changedMap, samePages, githubEntries);
@@ -508,9 +514,9 @@ public class GitHubGroovy {
         return changedMap;
     }
 
-    public updatePages(pageList) {
+    public updatePages(pageList, spaces) {
         def changedMap = new TreeMap();
-        def githubEntries = getEntries();
+        def githubEntries = getEntries(spaces);
 
         for (pageobj in pageList) {
            def page = pageobj.page;
@@ -710,7 +716,19 @@ public class GitHubGroovy {
          return srcpath + "/";
     }
 
-    public getEntries() {
+    public matchSpace(path, spaces) {
+      if (spaces==null)
+       return true;
+
+      for (space in spaces.split(",")) {
+        if (path.startsWith(space.replaceAll("[.]", "/"))) {
+           return true;
+        }
+      }
+      return false;
+    }
+
+    public getEntries(String spaces) {
         def entries = new HashMap();
 
         def dservice = new DataService(githubclient);
@@ -724,11 +742,11 @@ public class GitHubGroovy {
         for (treeEntry in dservice.getTree(repository, sha, true).tree) {
           def entryPath = treeEntry.getPath();
           def srcPath = getSourcePath();
-          debug("Checking path: ${entryPath} against ${srcPath}");
+          // debug("Checking path: ${entryPath} against ${srcPath}");
           if (entryPath!=null &amp;&amp; entryPath.startsWith(srcPath)) {
            def filePath = treeEntry.path.substring(srcPath.length());
-           debug("Got filePath: ${filePath}");
-           if (filePath.contains("/")) {
+           if (filePath.contains("/") &amp;&amp; matchSpace(filePath, spaces)) {
+            debug("Found matching filePath: ${filePath}");
             def blob = dservice.getBlob(repository, treeEntry.sha);
             def githubcontent = new String(Base64.decodeBase64(blob.content.getBytes())).replaceAll("[\r]","").trim();
             def githubhash = (githubcontent==null) ? "" : githubcontent.hashCode();
