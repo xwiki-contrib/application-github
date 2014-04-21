@@ -182,7 +182,7 @@ $githubgroovy.exportPages($doc.name, $pagelist)
 #foreach($page in $request.getParameterValues("page"))
 #set($ok = $pagelist.add({ "page" : $page, "sha" : $request.get("${page}_sha")}))
 #end
-#set($list = $githubgroovy.updatePages($pagelist))
+#set($list = $githubgroovy.updatePages($pagelist,$spaces))
 
 $msg.get("github.configsheet.pagesupdated")
 
