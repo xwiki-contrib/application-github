@@ -6,16 +6,15 @@
 <defaultLanguage>en</defaultLanguage>
 <translation>0</translation>
 <parent></parent>
-<creator>xwiki:XWiki.Admin</creator>
-<author>xwiki:XWiki.Admin</author>
+<creator>XWiki.Admin</creator>
+<author>XWiki.Admin</author>
 <customClass></customClass>
-<contentAuthor>xwiki:XWiki.Admin</contentAuthor>
+<contentAuthor>XWiki.Admin</contentAuthor>
 <creationDate>1356994800000</creationDate>
 <date>1356994800000</date>
 <contentUpdateDate>1356994800000</contentUpdateDate>
 <version>1.1</version>
 <title></title>
-<template></template>
 <defaultTemplate></defaultTemplate>
 <validationScript></validationScript>
 <comment></comment>
@@ -32,6 +31,8 @@ import java.util.Iterator;
 import org.apache.commons.lang.StringUtils;
 import com.xpn.xwiki.doc.XWikiDocument;
 import org.apache.velocity.tools.generic.EscapeTool;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 
 public class GitHubGroovy {
     def xwiki;
@@ -49,6 +50,7 @@ public class GitHubGroovy {
     def savedlist = "";
     def repository = null;
     def username = "";
+    def email = "";
     def password = "";
     def defaultDate = "";
     def defaultUser = "";
@@ -81,6 +83,7 @@ public class GitHubGroovy {
        def authobj = configdoc.getObject("GitHubCode.GitHubAuthClass", "contextuser", context.user)
        if (authobj) {
          this.username = authobj.getProperty("username").value
+         this.email = authobj.getProperty("email").value
          this.password = authobj.getProperty("password").property.value
          debug("Found user ${username}")
        }
@@ -209,6 +212,11 @@ public class GitHubGroovy {
           clonedDoc.removeObject(object);
         }
 
+        // remove all github authentication classes so that we don't commit passwords
+        for (object in clonedDoc.getObjects("GitHubCode.GitHubConfigClass")) {
+          object.set("status", "", context.getContext())
+        }
+
         if (defaultUser &amp;&amp; defaultUser!="") {
           clonedDoc.setCreator(defaultUser);
           clonedDoc.setContentAuthor(defaultUser);
@@ -235,6 +243,15 @@ public class GitHubGroovy {
         return c.trim().replaceAll("[\r]","");
     }
 
+    public CommitUser createCommitUser(String email, String name) {
+        CommitUser  cUser = new CommitUser();
+        cUser.setEmail(email);
+        cUser.setName(name);
+        def formatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS");
+        def now = Calendar.getInstance();
+        cUser.setDate(now.getTime());
+        return cUser;
+    }
 
 
     public commitFiles(pagelist, message, pom) {
@@ -372,8 +389,12 @@ public class GitHubGroovy {
           blobTree = dservice.createTree(repository, treeEntries, currentTree.getSha());      
         }
         debug("Create tree: " + blobTree);
- 
+        debug("Prepare user: " + this.email + " " + this.username);
+
         Commit commit = new Commit();
+        CommitUser user = createCommitUser(this.email,this.username);
+        commit.setAuthor(user);
+        commit.setCommitter(user);
         commit.setMessage(message);
         commit.setTree(blobTree);
         if (sha!=null)

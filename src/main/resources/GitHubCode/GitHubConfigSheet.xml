@@ -6,16 +6,15 @@
 <defaultLanguage>en</defaultLanguage>
 <translation>0</translation>
 <parent>SVNCode.SVNConfigClass</parent>
-<creator>xwiki:XWiki.Admin</creator>
-<author>xwiki:XWiki.Admin</author>
+<creator>XWiki.Admin</creator>
+<author>XWiki.Admin</author>
 <customClass></customClass>
-<contentAuthor>xwiki:XWiki.Admin</contentAuthor>
+<contentAuthor>XWiki.Admin</contentAuthor>
 <creationDate>1356994800000</creationDate>
 <date>1356994800000</date>
 <contentUpdateDate>1356994800000</contentUpdateDate>
 <version>1.1</version>
 <title></title>
-<template></template>
 <defaultTemplate></defaultTemplate>
 <validationScript></validationScript>
 <comment></comment>
@@ -78,6 +77,8 @@
   #set($ok = $doc.use($authobj))
   **$doc.displayPrettyName("username")**
   $doc.display("username")
+  **$doc.displayPrettyName("email")**
+  $doc.display("email")
   #if($context.action=="inline")
    **$doc.displayPrettyName("password")**
    $doc.display("password")
@@ -85,7 +86,7 @@
    $doc.display("contextuser", "hidden")
   #end
   #set($ok = $doc.use("GitHubCode.GitHubConfigClass"))
- #elseif($prop.name!="username"&amp;&amp;$prop.name!="password")
+ #elseif($prop.name!="username"&amp;&amp;$prop.name!="password"&amp;&amp;$prop.name!="email")
  #set($tooltip = $prop.propertyClass.getTooltip($context.context))
   **$doc.displayPrettyName($prop.name)** #if($tooltip!="GitHubCode.GitHubConfigClass_${prop.name}_tooltip")//(${tooltip})//#end
 
