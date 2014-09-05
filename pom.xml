@@ -32,4 +32,11 @@
   <packaging>xar</packaging>
   <name>XWiki Application - GitHub App</name>
   <description>XWiki GitHub Application allowing to commit XWiki code to a GitHub repository</description>
+  <dependencies>
+     <dependency>
+	<groupId>org.eclipse.mylyn.github</groupId>
+	<artifactId>org.eclipse.egit.github.core</artifactId>
+	<version>2.1.5</version>
+     </dependency>
+ </dependencies>
 </project>
