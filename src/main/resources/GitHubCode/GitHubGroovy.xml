@@ -459,7 +459,7 @@ public class GitHubGroovy {
            
            def filePath = getFilePath(pagedoc);
            def entry = githubEntries.get(filePath);
-           debug("Check ${filePath} ${wikihash}");
+           debug("Check ${filePath} ${wikihash} ${entry.githubhash} ${entry.githubhash_unformatted}");
 
            if (entry==null || !wikihash.equals(entry.githubhash) || !wikihash.equals(entry.githubhash_unformatted)) {
             def pageStatus = getPageStatus(getStatusPath(pagedoc));
@@ -829,7 +829,7 @@ public class GitHubGroovy {
            if (filePath.contains("/") &amp;&amp; matchSpace(filePath, spaces)) {
             debug("Found matching filePath: ${filePath}");
             def blob = dservice.getBlob(repository, treeEntry.sha);
-            def githubcontent = new String(Base64.decodeBase64(blob.content.getBytes()), "UTF-8").replaceAll("[\r]","").trim();
+            def githubcontent = new String(Base64.decodeBase64(blob.content.getBytes()), "UTF-8"); 
             // calculate the hash before formatting
             def githubhash_unformatted = (githubcontent==null) ? "" : githubcontent.hashCode();
             githubcontent = cleanXML(githubcontent, true);
@@ -860,6 +860,7 @@ public class GitHubGroovy {
         githubxml = githubxml.replaceAll("(?s)&lt;attachment&gt;(.*?)&lt;content&gt;(.*?)&lt;/content&gt;(.*?)&lt;/attachment&gt;", "&lt;attachment&gt;\$1&lt;content&gt;&lt;/content&gt;\$3&lt;/attachment&gt;")
         xml = xml.replaceAll("(?s)&lt;attachment&gt;(.*?)&lt;content&gt;(.*?)&lt;/content&gt;(.*?)&lt;/attachment&gt;",
                       "&lt;attachment&gt;\$1&lt;content&gt;&lt;/content&gt;\$3&lt;/attachment&gt;")
+
         return xwiki.diff.getDifferencesAsHTML(githubxml, xml, false);
     }
 
