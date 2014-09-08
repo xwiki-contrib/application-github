@@ -38,7 +38,14 @@
       <name>ldubost</name>
     </developer>
   </developers>
- <build>
+  <dependencies>
+     <dependency>
+        <groupId>org.eclipse.mylyn.github</groupId>
+        <artifactId>org.eclipse.egit.github.core</artifactId>
+        <version>2.1.5</version>
+     </dependency>
+  </dependencies>
+  <build>
     <!-- Needed to add support for the XAR packaging -->
     <extensions>
       <extension>
