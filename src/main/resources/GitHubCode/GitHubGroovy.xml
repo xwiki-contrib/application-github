@@ -1,38 +1,54 @@
 <?xml version="1.0" encoding="UTF-8"?>
+
 <xwikidoc>
-<web>GitHubCode</web>
-<name>GitHubGroovy</name>
-<language></language>
-<defaultLanguage>en</defaultLanguage>
-<translation>0</translation>
-<parent></parent>
-<creator>XWiki.Admin</creator>
-<author>XWiki.Admin</author>
-<customClass></customClass>
-<contentAuthor>XWiki.Admin</contentAuthor>
-<creationDate>1356994800000</creationDate>
-<date>1356994800000</date>
-<contentUpdateDate>1356994800000</contentUpdateDate>
-<version>1.1</version>
-<title></title>
-<defaultTemplate></defaultTemplate>
-<validationScript></validationScript>
-<comment></comment>
-<minorEdit>false</minorEdit>
-<syntaxId>xwiki/2.0</syntaxId>
-<hidden>false</hidden>
-<content>
+  <web>GitHubCode</web>
+  <name>GitHubGroovy</name>
+  <language/>
+  <defaultLanguage/>
+  <translation>0</translation>
+  <parent>GitHubCode.WebHome</parent>
+  <creator>xwiki:XWiki.Admin</creator>
+  <author>xwiki:XWiki.Admin</author>
+  <customClass/>
+  <contentAuthor>xwiki:XWiki.Admin</contentAuthor>
+  <creationDate>1356994800000</creationDate>
+  <date>1356994800000</date>
+  <contentUpdateDate>1356994800000</contentUpdateDate>
+  <version>1.1</version>
+  <title/>
+  <defaultTemplate/>
+  <validationScript/>
+  <comment/>
+  <minorEdit>false</minorEdit>
+  <syntaxId>xwiki/2.0</syntaxId>
+  <hidden>false</hidden>
+  <content>
 import org.eclipse.egit.github.core.*;
 import org.eclipse.egit.github.core.client.*;
 import org.eclipse.egit.github.core.service.*;
-import org.apache.commons.codec.binary.Base64;
+
 import java.util.Collection;
 import java.util.Iterator;
-import org.apache.commons.lang.StringUtils;
-import com.xpn.xwiki.doc.XWikiDocument;
-import org.apache.velocity.tools.generic.EscapeTool;
-import java.text.SimpleDateFormat;
 import java.util.Calendar;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
+
+import java.text.SimpleDateFormat;
+
+import org.apache.velocity.tools.generic.EscapeTool;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.codec.binary.Base64;
+
+import org.dom4j.Node;
+import org.dom4j.io.OutputFormat;
+import org.dom4j.io.XMLWriter;
+import org.dom4j.Document;
+import org.dom4j.Element;
+import org.dom4j.io.SAXReader;
+
+import com.xpn.xwiki.doc.XWikiDocument;
 
 public class GitHubGroovy {
     def xwiki;
@@ -56,6 +72,7 @@ public class GitHubGroovy {
     def defaultUser = "";
     def sdebug = "";
     def status = new HashMap();
+    def DEFAULTAUTHOR = "xwiki:XWiki.Admin";
 
     public setXWiki(xwiki, context) {
       this.xwiki = xwiki;
@@ -165,17 +182,19 @@ public class GitHubGroovy {
        return filePath;
     }
 
-    public cleanXML(githubcontent) {
+    public cleanXML(githubcontent, withFormat) {
         def newdoc = new XWikiDocument();
         newdoc.fromXML(githubcontent);
-        return getXML(newdoc.newDocument(context.getContext()));
+        return getXML(newdoc.newDocument(context.getContext()), withFormat);
     }
 
-    public String getFileContentAsString(sha) {
+    public String getFileContentAsString(sha, withFormat) {
         def dservice = new DataService(githubclient);
         def blob = dservice.getBlob(repository, sha);
         def githubcontent = new String(Base64.decodeBase64(blob.content.getBytes()), "UTF-8");
-        return cleanXML(githubcontent);
+        if (withFormat)
+         return cleanXML(githubcontent, true);
+        return githubcontent;
    }
 
  /*    
@@ -196,10 +215,13 @@ public class GitHubGroovy {
       samplePOM = samplePOM.replaceAll("PRJPNAME", prjname)
       samplePOM = samplePOM.replaceAll("PRJDESC", escapetool.xml(prjdesc))
       samplePOM = samplePOM.replaceAll("PRJVERSION", prjversion)
+      samplePOM = samplePOM.replaceAll("REPOSITORY_NAME", repname)
+      samplePOM = samplePOM.replaceAll("REPOSITORY_USER", repuser)
+      samplePOM = samplePOM.replaceAll("USERNAME", username)
       return samplePOM;
    }
 
-   public getXML(pagedoc) {
+   public getXML(pagedoc, boolean withFormat) {
         def clonedDoc = pagedoc.document.clone();
 
         // remove Tag object
@@ -217,11 +239,16 @@ public class GitHubGroovy {
           object.set("status", "", context.getContext())
         }
 
-        if (defaultUser &amp;&amp; defaultUser!="") {
+        if (withFormat) {
+         clonedDoc.setCreator(DEFAULTAUTHOR);
+          clonedDoc.setContentAuthor(DEFAULTAUTHOR);
+          clonedDoc.setAuthor(DEFAULTAUTHOR);
+
+        } else if (defaultUser &amp;&amp; defaultUser!="") {
           clonedDoc.setCreator(defaultUser);
           clonedDoc.setContentAuthor(defaultUser);
           clonedDoc.setAuthor(defaultUser);
-        } else {
+        }  else {
           clonedDoc.setCreator(clonedDoc.getAuthor());
           clonedDoc.setContentAuthor(clonedDoc.getAuthor());
         }
@@ -236,11 +263,12 @@ public class GitHubGroovy {
           clonedDoc.setCreationDate(clonedDoc.getDate())
           clonedDoc.setVersion("1.1");
         }  
-
+  
         clonedDoc.setComment("");
         clonedDoc.setMinorEdit(false);
         def c = clonedDoc.toXML(true, false, true, false, context.getContext())
-        return c.trim().replaceAll("[\r]","");
+        def c2 = c.trim().replaceAll("[\r]","");
+        return (withFormat) ? format(c2, "") : c2;
     }
 
     public CommitUser createCommitUser(String email, String name) {
@@ -321,7 +349,7 @@ public class GitHubGroovy {
                   filePath += "." + language;
               filePath += ".xml"
 
-              def newXML = getXML(pagedoc);
+              def newXML = getXML(pagedoc, true);
               def newData = newXML.getBytes();
 
               Blob blob = new Blob();
@@ -424,16 +452,16 @@ public class GitHubGroovy {
     }
 
     protected checkPage(page, pagedoc, changedMap, samePages, githubEntries) {
-           def wikicontent = getXML(pagedoc);
-
-
+           def wikicontent = getXML(pagedoc, true);
            def wikihash = (wikicontent==null) ? "" : "${wikicontent.hashCode()}";
+           
+           def wikicontent_unformatted = getXML(pagedoc, false);
            
            def filePath = getFilePath(pagedoc);
            def entry = githubEntries.get(filePath);
            debug("Check ${filePath} ${wikihash}");
 
-           if (entry==null || !wikihash.equals(entry.githubhash)) {
+           if (entry==null || !wikihash.equals(entry.githubhash) || !wikihash.equals(entry.githubhash_unformatted)) {
             def pageStatus = getPageStatus(getStatusPath(pagedoc));
             if (pageStatus==null) {
                pageStatus = [ "xwikiversion" : pagedoc.getVersion(), "xwikihash" : "", "githubversion" : "", "githubsha" : (entry==null) ? "" : entry.githubsha ];
@@ -447,8 +475,10 @@ public class GitHubGroovy {
             pageStatus.githubsha = (entry==null) ? "" : entry.githubsha;
 
             // debug("Checking page ${page} version ${pagedoc.getVersion()} pageStatus ${pageStatus}")
-
-            if (entry==null &amp;&amp; !pagedoc.isNew()) {
+            // if the documents match after formatting but the pure github content is different then display it as 'F' (content is equivalent except formatting).
+            if (entry!=null &amp;&amp; wikihash.equals(entry.githubhash)) {
+                pageStatus.status = "F";
+            } else if (entry==null &amp;&amp; !pagedoc.isNew()) {
                 pageStatus.status = "A";
             } else if (pageStatus.xwikihash=="") {
                def githubsha = (entry==null) ? "" : entry.githubsha;
@@ -474,6 +504,17 @@ public class GitHubGroovy {
                else
                 pageStatus.status = "C";
             }
+
+            // verify Invalid parents
+            if (pagedoc.getParent()=="")
+             pageStatus.status += " - Empty Parent"
+
+            // verify default language
+            if (pagedoc.getLanguage()=="") {
+               if (pagedoc.getDefaultLanguage()!="" &amp;&amp; pagedoc.getTranslationList().size()==0)
+                pageStatus.status += " - Default language should be empty"
+            }
+
             changedMap.put(page, pageStatus)
            } else {
              samePages.add(filePath);
@@ -576,7 +617,7 @@ public class GitHubGroovy {
            if (lang!=null &amp;&amp; lang!="") {
              pagedoc = pagedoc.getTranslatedDocument(lang);
            }
-           def wikicontent = getXML(pagedoc);
+           def wikicontent = getXML(pagedoc, true);
 
            def filePath = getFilePath(pagedoc);
            def entry = githubEntries.get(filePath);
@@ -649,7 +690,7 @@ public class GitHubGroovy {
  
               // reading the information to set the status
               def newpagedoc = xwiki.getDocument(pagedoc.getFullName());
-              def newwikicontent = getXML(pagedoc);
+              def newwikicontent = getXML(pagedoc, true);
               pageStatus.xwikiversion = pagedoc.getVersion();
               pageStatus.xwikihash = "${newwikicontent.hashCode()}";  
               pageStatus.githubversion = githubversion;    
@@ -706,7 +747,7 @@ public class GitHubGroovy {
                  def pageName = (i1==-1) ? fileName : fileName.substring(0, i1);
                  pageName = space + "." + pageName;
                  def pagedoc = xwiki.getDocument(pageName);
-                 def pagexml = getXML(pagedoc);
+                 def pagexml = getXML(pagedoc, true);
 
                  def baos = new ByteArrayOutputStream();
                  // debug("reading file: ${space}/${fileName}")
@@ -789,10 +830,12 @@ public class GitHubGroovy {
             debug("Found matching filePath: ${filePath}");
             def blob = dservice.getBlob(repository, treeEntry.sha);
             def githubcontent = new String(Base64.decodeBase64(blob.content.getBytes()), "UTF-8").replaceAll("[\r]","").trim();
-            githubcontent = cleanXML(githubcontent);
+            // calculate the hash before formatting
+            def githubhash_unformatted = (githubcontent==null) ? "" : githubcontent.hashCode();
+            githubcontent = cleanXML(githubcontent, true);
             def githubhash = (githubcontent==null) ? "" : githubcontent.hashCode();
             def githubversion = 0;
-            entries.put(filePath, [ "githubversion" : githubversion, "githubsha" : treeEntry.sha, "githubhash" : "${githubhash}", "githubcontent" : githubcontent ]);
+            entries.put(filePath, [ "githubversion" : githubversion, "githubsha" : treeEntry.sha, "githubhash" : "${githubhash}", "githubhash_unformatted" : "${githubhash_unformatted}", "githubcontent" : githubcontent ]);
             debug("Adding: ${filePath}");
            }
           }
@@ -801,9 +844,9 @@ public class GitHubGroovy {
     }
 
 
-    public showXMLDiff(pagedoc, sha) {
-        def githubxml = (sha=="") ? "" : getFileContentAsString(sha);
-        def xml = getXML(pagedoc);
+    public showXMLDiff(pagedoc, sha, withFormat) {
+        def githubxml = (sha=="") ? "" : getFileContentAsString(sha, withFormat);
+        def xml = getXML(pagedoc, true);
         if (pagedoc.isNew() &amp;&amp; githubxml == null)
          return "Document does not exist";
         
@@ -820,4 +863,117 @@ public class GitHubGroovy {
         return xwiki.diff.getDifferencesAsHTML(githubxml, xml, false);
     }
 
-}</content></xwikidoc>
+   // Adding class and method to perform indentation and cleanup
+public class XWikiXMLWriter extends XMLWriter
+{
+    /**
+     * True if we use an output format.
+     */
+    private boolean useFormat;
+
+    /**
+     * @param output the stream where to write the XML
+     * @throws UnsupportedEncodingException in case encoding issue
+     */
+    public XWikiXMLWriter(OutputStream output) throws UnsupportedEncodingException
+    {
+        super(output);
+    }
+
+    /**
+     * @param output the stream where to write the XML
+     * @param format the style to use when outputting the XML
+     * @throws UnsupportedEncodingException in case encoding issue
+     */
+    public XWikiXMLWriter(OutputStream output, OutputFormat format) throws UnsupportedEncodingException
+    {
+        super(output, format);
+        this.useFormat = true;
+    }
+
+    @Override
+    protected void writeComment(String text) throws IOException
+    {
+        super.writeComment(text);
+
+        // Add a new line after the license declaration
+        if (text.contains("See the NOTICE file distributed with this work for additional")) {
+            println();
+        }
+    }
+
+    @Override
+    protected void writeNodeText(Node node) throws IOException
+    {
+        if (this.useFormat &amp;&amp; node.getText().trim().length() == 0) {
+          // Check if parent node contains non text nodes
+            boolean containsNonTextNode = false;
+            for (Object object : node.getParent().content()) {
+                Node objectNode = (Node) object;
+                if (objectNode.getNodeType() != Node.TEXT_NODE) {
+                    containsNonTextNode = true;
+                    break;
+                }
+            }
+            if (containsNonTextNode) {
+                // Don't do anything, i.e. don't print the current text node
+            } else {
+                super.writeNodeText(node);
+            }
+        } else {
+            super.writeNodeText(node);
+        }
+    }
+
+    @Override
+    protected void writePrintln() throws IOException
+    {
+        // We need to reimplement this method because of a bug (bad logic) in the original writePrintln() which checks
+        // the last output char to decide whether to print a NL or not:
+        //  ...3&lt;/a&gt;&lt;/b&gt; --&gt; ...3&lt;/a&gt;\n&lt;/b&gt;
+        // but
+        //  ...3\n&lt;/a&gt;&lt;/b&gt; --&gt; ...3\n&lt;/a&gt;&lt;/b&gt;
+        // and
+        //  ...3\n&lt;/a&gt;\n&lt;/b&gt; --&gt; ...3\n&lt;/a&gt;&lt;/b&gt;
+        if (this.useFormat) {
+           println(); 
+           // writer.write(getOutputFormat().getLineSeparator());
+        }
+    }
+}
+   // formats the XWiki XML including indentation
+   def String format(String data, String defaultLanguage) throws Exception
+    {
+        def sr = new StringReader(data);
+        SAXReader reader = new SAXReader();
+        Document domdoc = reader.read(sr);
+
+        Node rnode = domdoc.getRootElement();
+        if (rnode !=null) {
+          Node node = rnode.element("author");
+          if (node != null) {
+            node.setText(DEFAULTAUTHOR);
+          }
+          node = rnode.element("contentAuthor");
+          if (node != null) {
+            node.setText(DEFAULTAUTHOR);
+          }
+          node = rnode.element("creator");
+          if (node != null) {
+            node.setText(DEFAULTAUTHOR);
+          }
+        }
+
+        def baos = new ByteArrayOutputStream()
+        XMLWriter w;
+        OutputFormat format = new OutputFormat("  ", true, "UTF-8");
+        format.setExpandEmptyElements(false);
+        w = new XWikiXMLWriter(baos, format);
+        
+        w.write(domdoc);
+        w.close();
+        return baos.toString();
+    }
+
+}</content>
+</xwikidoc>

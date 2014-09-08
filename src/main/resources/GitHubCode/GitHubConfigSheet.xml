@@ -1,55 +1,56 @@
 <?xml version="1.0" encoding="UTF-8"?>
+
 <xwikidoc>
-<web>GitHubCode</web>
-<name>GitHubConfigSheet</name>
-<language></language>
-<defaultLanguage>en</defaultLanguage>
-<translation>0</translation>
-<parent>SVNCode.SVNConfigClass</parent>
-<creator>XWiki.Admin</creator>
-<author>XWiki.Admin</author>
-<customClass></customClass>
-<contentAuthor>XWiki.Admin</contentAuthor>
-<creationDate>1356994800000</creationDate>
-<date>1356994800000</date>
-<contentUpdateDate>1356994800000</contentUpdateDate>
-<version>1.1</version>
-<title></title>
-<defaultTemplate></defaultTemplate>
-<validationScript></validationScript>
-<comment></comment>
-<minorEdit>false</minorEdit>
-<syntaxId>xwiki/2.0</syntaxId>
-<hidden>false</hidden>
-<object>
-<class>
-<name>XWiki.SheetClass</name>
-<customClass></customClass>
-<customMapping></customMapping>
-<defaultViewSheet></defaultViewSheet>
-<defaultEditSheet></defaultEditSheet>
-<defaultWeb></defaultWeb>
-<nameField></nameField>
-<validationScript></validationScript>
-<defaultEditMode>
-<disabled>0</disabled>
-<name>defaultEditMode</name>
-<number>1</number>
-<prettyName>Default Edit Mode</prettyName>
-<size>15</size>
-<unmodifiable>0</unmodifiable>
-<classType>com.xpn.xwiki.objects.classes.StringClass</classType>
-</defaultEditMode>
-</class>
-<name>GitHubCode.GitHubConfigSheet</name>
-<number>0</number>
-<className>XWiki.SheetClass</className>
-<guid>a4338244-ae06-44ec-9645-7de7ec245282</guid>
-<property>
-<defaultEditMode></defaultEditMode>
-</property>
-</object>
-<content>{{velocity}}
+  <web>GitHubCode</web>
+  <name>GitHubConfigSheet</name>
+  <language/>
+  <defaultLanguage/>
+  <translation>0</translation>
+  <parent>SVNCode.SVNConfigClass</parent>
+  <creator>xwiki:XWiki.Admin</creator>
+  <author>xwiki:XWiki.Admin</author>
+  <customClass/>
+  <contentAuthor>xwiki:XWiki.Admin</contentAuthor>
+  <creationDate>1356994800000</creationDate>
+  <date>1356994800000</date>
+  <contentUpdateDate>1356994800000</contentUpdateDate>
+  <version>1.1</version>
+  <title/>
+  <defaultTemplate/>
+  <validationScript/>
+  <comment/>
+  <minorEdit>false</minorEdit>
+  <syntaxId>xwiki/2.0</syntaxId>
+  <hidden>false</hidden>
+  <object>
+    <class>
+      <name>XWiki.SheetClass</name>
+      <customClass/>
+      <customMapping/>
+      <defaultViewSheet/>
+      <defaultEditSheet/>
+      <defaultWeb/>
+      <nameField/>
+      <validationScript/>
+      <defaultEditMode>
+        <disabled>0</disabled>
+        <name>defaultEditMode</name>
+        <number>1</number>
+        <prettyName>Default Edit Mode</prettyName>
+        <size>15</size>
+        <unmodifiable>0</unmodifiable>
+        <classType>com.xpn.xwiki.objects.classes.StringClass</classType>
+      </defaultEditMode>
+    </class>
+    <name>GitHubCode.GitHubConfigSheet</name>
+    <number>0</number>
+    <className>XWiki.SheetClass</className>
+    <guid>a4338244-ae06-44ec-9645-7de7ec245282</guid>
+    <property>
+      <defaultEditMode/>
+    </property>
+  </object>
+  <content>{{velocity}}
 #if ("$!request.action" == "compare")
 = $msg.get('github.configsheet.compare.title'): $request.page =
 #else
@@ -165,6 +166,10 @@ $configLoaded
 &lt;input type="hidden" name="${status.fullname}.$!{status.language}_sha" value="${status.githubsha}" /&gt;
 #if($status.status!="N")
 [[$msg.get("github.configsheet.viewdiff")&gt;&gt;${doc.fullName}?action=compare&amp;page=${status.fullname}&amp;githublanguage=${status.language}&amp;spaces=$!{spaces}&amp;githubsha=${status.githubsha}||target=_blank]]
+ -
+[[$msg.get("github.configsheet.viewdiffunformatted")&gt;&gt;${doc.fullName}?action=compare&amp;page=${status.fullname}&amp;githublanguage=${status.language}&amp;spaces=$!{spaces}&amp;githubsha=${status.githubsha}&amp;unformatted=1||target=_blank]]
+ -
+[[$msg.get("github.configsheet.viewdoc")&gt;&gt;${status.fullname}?language=${status.language}||target=_blank]]
 #end
 #end
 &lt;/ul&gt;
@@ -256,7 +261,11 @@ background-color: #AAFFAA;
 #if($request.githublanguage)
 #set($pagedoc = $pagedoc.getTranslatedDocument($request.githublanguage))
 #end
-$githubgroovy.showXMLDiff($pagedoc, $request.githubsha)
+#if("1"=="$!{request.unformatted}")
+$githubgroovy.showXMLDiff($pagedoc, $request.githubsha, false)
+#else
+$githubgroovy.showXMLDiff($pagedoc, $request.githubsha, true)
+#end
 {{/html}}
 
 ## OTHER ACTION
@@ -274,4 +283,5 @@ $githubgroovy.getDebug()
 #end
 #end
 {{/velocity}}
-</content></xwikidoc>
+</content>
+</xwikidoc>
