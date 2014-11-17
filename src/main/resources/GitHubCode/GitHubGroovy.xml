@@ -11,9 +11,9 @@
   <author>xwiki:XWiki.Admin</author>
   <customClass/>
   <contentAuthor>xwiki:XWiki.Admin</contentAuthor>
-  <creationDate>1356994800000</creationDate>
-  <date>1356994800000</date>
-  <contentUpdateDate>1356994800000</contentUpdateDate>
+  <creationDate>1388527200000</creationDate>
+  <date>1388527200000</date>
+  <contentUpdateDate>1388527200000</contentUpdateDate>
   <version>1.1</version>
   <title/>
   <defaultTemplate/>
@@ -459,7 +459,10 @@ public class GitHubGroovy {
            
            def filePath = getFilePath(pagedoc);
            def entry = githubEntries.get(filePath);
-           debug("Check ${filePath} ${wikihash} ${entry.githubhash} ${entry.githubhash_unformatted}");
+           if (entry==null)
+            debug("Check ${filePath} ${wikihash}");
+           else
+            debug("Check ${filePath} ${wikihash} ${entry.githubhash} ${entry.githubhash_unformatted}");
 
            if (entry==null || !wikihash.equals(entry.githubhash) || !wikihash.equals(entry.githubhash_unformatted)) {
             def pageStatus = getPageStatus(getStatusPath(pagedoc));
