@@ -459,7 +459,7 @@ public class GitHubGroovy {
            
            def filePath = getFilePath(pagedoc);
            def entry = githubEntries.get(filePath);
-           debug("Check ${filePath} ${wikihash} ${entry.githubhash} ${entry.githubhash_unformatted}");
+           debug("Check ${filePath} ${wikihash}");
 
            if (entry==null || !wikihash.equals(entry.githubhash) || !wikihash.equals(entry.githubhash_unformatted)) {
             def pageStatus = getPageStatus(getStatusPath(pagedoc));
