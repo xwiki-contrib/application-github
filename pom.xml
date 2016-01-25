@@ -28,7 +28,7 @@
   </parent>
   <groupId>org.xwiki.contrib</groupId>
   <artifactId>application-github-app</artifactId>
-  <version>1.4-SNAPSHOT</version>
+  <version>1.3.2</version>
   <packaging>xar</packaging>
   <name>GitHub Commit Application</name>
   <description>Allows committing content of wiki pages to a GitHub repository</description>
@@ -72,7 +72,7 @@
     <connection>scm:git:git://github.com/xwiki-contrib/application-github.git</connection>
     <developerConnection>scm:git:git@github.com:xwiki-contrib/application-github.git</developerConnection>
     <url>https://github.com/xwiki-contrib/application-github</url>
-    <tag>application-github-app-1.3</tag>
+    <tag>application-github-app-1.3.2</tag>
   </scm>
   <distributionManagement>
     <repository>
